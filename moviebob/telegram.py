@@ -113,7 +113,7 @@ def create_monthly_msg(db, user_list):
             msg_list.append("- 🥉 Letztes Edelmetal geht an %s mit %s Filmen unterm Gürtel, davon %s Rewatches" % \
                             (user, watch_list[user], rewatch_list[user]))
         else:
-            msg_list.append("- 🍑 %s hatte wohl Bessers zu tun, und schaffte es nur auf %s Film(e) reingezogen, " \
+            msg_list.append("- 🍑 %s hatte wohl Bessers zu tun, und schaffte es nur auf %s Film(e), " \
                             "davon %s Rewatche(s)" % \
                             (user, watch_list[user], rewatch_list[user]))
 
