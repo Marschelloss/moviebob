@@ -89,8 +89,8 @@ def create_monthly_msg(db, user_list):
     msg_list = []
     target_month = (datetime.now() + relativedelta.relativedelta(months=-1)).month
     target_year = (datetime.now() + relativedelta.relativedelta(months=-1)).year
-    target_start = f"datetime('%s-%s-01 00:00:00')" % (target_year, target_month)
-    target_end = f"datetime('%s-%s-31 23:59:59')" % (target_year, target_month)
+    target_start = f"datetime('%d-%02d-01 00:00:00')" % (target_year, target_month)
+    target_end = f"datetime('%d-%02d-31 23:59:59')" % (target_year, target_month)
 
     for user in user_list:
         username = user_list[user].nickname
