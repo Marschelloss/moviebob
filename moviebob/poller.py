@@ -43,18 +43,33 @@ def fetch_movies(user_list, db):
             feed = feedparser.parse(user_list[user].feed_url)
             for e in feed.entries:
                 try:
-                    movie = helper.Movie(
-                        letterboxd_id=e.id,
-                        db=db,
-                        url=e.link,
-                        title=e.letterboxd_filmtitle,
-                        year=int(e.letterboxd_filmyear),
-                        rating=e.letterboxd_memberrating,
-                        date=datetime.fromtimestamp(mktime(e.published_parsed)).isoformat(),
-                        user=user_list[user],
-                        rewatch=int(e.letterboxd_rewatch == 'Yes')
-                    )
-                    logger.debug(f"Saved movie '%s' to database ..." % movie.title)
+                    if hasattr(e, "letterboxd_memberrating"):
+                        # e.letterboxd_memberrating not empty
+                        movie = helper.Movie(
+                            letterboxd_id=e.id,
+                            db=db,
+                            url=e.link,
+                            title=e.letterboxd_filmtitle,
+                            year=int(e.letterboxd_filmyear),
+                            rating=e.letterboxd_memberrating,
+                            date=datetime.fromtimestamp(mktime(e.published_parsed)).isoformat(),
+                            user=user_list[user],
+                            rewatch=int(e.letterboxd_rewatch == 'Yes')
+                        )
+                        logger.debug(f"Saved movie '%s' to database ..." % movie.title)
+                    else:
+                        movie = helper.Movie(
+                            letterboxd_id=e.id,
+                            db=db,
+                            url=e.link,
+                            title=e.letterboxd_filmtitle,
+                            year=int(e.letterboxd_filmyear),
+                            rating=0, # Users cannot rate 0 on letterboxd, so we can use it
+                            date=datetime.fromtimestamp(mktime(e.published_parsed)).isoformat(),
+                            user=user_list[user],
+                            rewatch=int(e.letterboxd_rewatch == 'Yes')
+                        )
+                        logger.debug(f"Saved movie '%s' to database ..." % movie.title)
                 except BaseException as err:
                     logger.debug(err)
                     logger.debug("Error while trying to parse movie. Continuing ...")
