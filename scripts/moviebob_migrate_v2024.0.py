@@ -54,4 +54,5 @@ while True:
         logger.error("Error while parsing '%s': %s" % (title, e))
         continue
 
+con.close()
 logger.info("Finished migration v2024.0")
