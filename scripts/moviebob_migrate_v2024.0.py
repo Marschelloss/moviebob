@@ -61,14 +61,14 @@ while True:
 
     title = movie[3]
     url = movie[2]
-    logger.info("Parsing: %s" % title)
+    logger.info("Parsing '%s' with url '%s'" % (title, url))
 
     try:
-        soup = BeautifulSoup(requests.get(url, headers=headers).content, "html.parser")
-        posterDiv = soup.find("div", attrs={"data-target-link": re.compile(r".*")})
-
-        subUrl = posterDiv.attrs["data-target-link"]
-        fullUrl = "https://letterboxd.com" + subUrl
+        # Parsing fullUrl out of review url to save requests to letterboxd.com
+        urlList = url.split("/")
+        # last element of url is movie path
+        fullUrl = "https://letterboxd.com/film/" + urlList[-2]
+        logger.debug("Using url: %s" % fullUrl)
 
         soup = BeautifulSoup(
             requests.get(fullUrl, headers=headers).content, "html.parser"
