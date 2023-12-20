@@ -9,18 +9,22 @@ class DB:
         logger.debug("Setting up database...")
 
         with self.ops() as cur:
-            cur.execute('''
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS users(
                     user_id INTEGER PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE,
                     nickname TEXT NOT NULL,
                     feed_url TEXT NOT NULL
                 )
-            ''')
-            cur.execute('''
+            """
+            )
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS movies(
                     movie_id INTEGER PRIMARY KEY,
                     letterboxd_id TEXT NOT NULL UNIQUE,
+                    tmdb_id INTEGER NOT NULL,
                     url TEXT NOT NULL,
                     title TEXT NOT NULL,
                     year INTEGER NOT NULL,
@@ -28,17 +32,31 @@ class DB:
                     rewatch INTEGER NOT NULL,
                     date TEXT NOT NULL,
                     user INTEGER NOT NULL,
+                    letterboxd_avg INTEGER,
                     notified INTEGER NOT NULL
                 )
-            ''')
-            cur.execute('''
+            """
+            )
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS monthly(
                     monthly_id INTEGER PRIMARY KEY,
                     month INTEGER NOT NULL,
                     year INTEGER NOT NULL,
                     notified INTEGER NOT NULL
                 )
-            ''')
+            """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tmdb(
+                    tmdb_id INTEGER PRIMARY KEY,
+                    imdb INTEGER NOT NULL,
+                    release_year INTEGER NOT NULL,
+                    runtime INTEGER NOT NULL,
+                    title TEXT NOT NULL
+                )"""
+            )
 
     @contextmanager
     def ops(self):
@@ -61,20 +79,24 @@ class User:
         self.db = db
 
         with self.db.ops() as c:
-            c.execute('''
+            c.execute(
+                """
                  INSERT or IGNORE into users(username, nickname, feed_url)
                  VALUES (?, ?, ?)
-            ''', (self.username,
-                  self.nickname,
-                  self.feed_url))
+            """,
+                (self.username, self.nickname, self.feed_url),
+            )
 
         with self.db.ops() as c:
             try:
-                c.execute('''
+                c.execute(
+                    """
                     SELECT user_id
                     FROM users
                     WHERE username is ?
-                ''', (self.username,))
+                """,
+                    (self.username,),
+                )
                 self.user_id = c.fetchone()[0]
             except BaseException as e:
                 logger.error(e)
@@ -83,7 +105,19 @@ class User:
 
 
 class Movie:
-    def __init__(self, letterboxd_id, db, url, title, year, rating, date, user: User, rewatch=0, notified=0):
+    def __init__(
+        self,
+        letterboxd_id,
+        db,
+        url,
+        title,
+        year,
+        rating,
+        date,
+        user: User,
+        rewatch=0,
+        notified=0,
+    ):
         self.letterboxd_id = letterboxd_id
         self.url = url
         self.title = title
@@ -96,26 +130,34 @@ class Movie:
         self.db = db
 
         with self.db.ops() as c:
-            c.execute('''
+            c.execute(
+                """
                 INSERT or IGNORE into movies(letterboxd_id, url, title, year, rating, rewatch, date, user, notified)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (self.letterboxd_id,
-                  self.url,
-                  self.title,
-                  self.year,
-                  self.rating,
-                  self.rewatch,
-                  self.date,
-                  self.user.user_id,
-                  self.notified))
+            """,
+                (
+                    self.letterboxd_id,
+                    self.url,
+                    self.title,
+                    self.year,
+                    self.rating,
+                    self.rewatch,
+                    self.date,
+                    self.user.user_id,
+                    self.notified,
+                ),
+            )
 
         with self.db.ops() as c:
             try:
-                c.execute('''
+                c.execute(
+                    """
                     SELECT movie_id
                     FROM movies
                     WHERE letterboxd_id is ?
-                ''', (self.letterboxd_id,))
+                """,
+                    (self.letterboxd_id,),
+                )
                 self.movie_id = c.fetchone()[0]
             except BaseException as e:
                 logger.error(e)

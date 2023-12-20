@@ -23,10 +23,10 @@ con = sqlite3.connect("moviebob.db")
 cur = con.cursor()
 # TMDB
 try:
-    cur.execute("SELECT tmdb FROM movies LIMIT 1")
+    cur.execute("SELECT tmdb_id FROM movies LIMIT 1")
 except sqlite3.OperationalError:
-    logger.info("Column 'tmdb' not found in table. Adding column ...")
-    cur.execute("ALTER TABLE movies ADD COLUMN tmdb INTEGER")
+    logger.info("Column 'tmdb_id' not found in table. Adding column ...")
+    cur.execute("ALTER TABLE movies ADD COLUMN tmdb_id INTEGER")
 
 # Letterboxd AVG
 try:
@@ -52,7 +52,7 @@ logger.info("Starting migration v2024.0")
 # -- Parsing tmdb IDs
 while True:
     res = cur.execute(
-        "SELECT * FROM movies WHERE tmdb is null OR letterboxd_avg is null LIMIT 1"
+        "SELECT * FROM movies tmdb_id is null OR letterboxd_avg is null LIMIT 1"
     )
     movie = res.fetchone()
     if movie is None:
@@ -81,7 +81,7 @@ while True:
         )
 
         cur.execute(
-            "UPDATE movies SET tmdb = ?, letterboxd_avg = ? WHERE url = ?",
+            "UPDATE movies SET tmdb_id = ?, letterboxd_avg = ? WHERE url = ?",
             (tmdbId, letterboxd_avg, url),
         )
         con.commit()
@@ -93,7 +93,7 @@ while True:
         continue
 
 # -- Parsing tmdb infos
-res = cur.execute("SELECT DISTINCT tmdb FROM movies")
+res = cur.execute("SELECT DISTINCT tmdb_id FROM movies")
 movieList = res.fetchall()
 for movie in movieList:
     movieId = movie[0]
