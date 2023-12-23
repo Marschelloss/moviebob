@@ -63,7 +63,7 @@ def update_letterboxd_avg(db: helper.DB):
             """
             SELECT title, tmdb_id, letterboxd_avg
             FROM tmdb
-            WHERE date(letterboxd_avg_date) <= date('now', '-1 day')
+            WHERE date(letterboxd_avg_date) <= date('now', '-30 day')
         """
         )
         movie_list = c.fetchall()
