@@ -19,12 +19,13 @@ class DB:
                 )
             """
             )
+            # ---
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS movies(
                     movie_id INTEGER PRIMARY KEY,
                     letterboxd_id TEXT NOT NULL UNIQUE,
-                    tmdb_id INTEGER NOT NULL,
+                    tmdb_id INTEGER,
                     url TEXT NOT NULL,
                     title TEXT NOT NULL,
                     year INTEGER NOT NULL,
@@ -32,11 +33,17 @@ class DB:
                     rewatch INTEGER NOT NULL,
                     date TEXT NOT NULL,
                     user INTEGER NOT NULL,
-                    letterboxd_avg INTEGER,
                     notified INTEGER NOT NULL
                 )
             """
             )
+            # Migration v2024.1
+            try:
+                cur.execute("SELECT tmdb_id FROM movies LIMIT 1")
+            except sqlite3.OperationalError:
+                logger.info("Column 'tmdb_id' not found in table. Adding column ...")
+                cur.execute("ALTER TABLE movies ADD COLUMN tmdb_id INTEGER")
+            # ---
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS monthly(
@@ -47,13 +54,16 @@ class DB:
                 )
             """
             )
+            # ---
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS tmdb(
                     tmdb_id INTEGER PRIMARY KEY,
-                    imdb INTEGER NOT NULL,
+                    imdb_id INTEGER NOT NULL,
                     release_year INTEGER NOT NULL,
                     runtime INTEGER NOT NULL,
+                    letterboxd_avg REAL,
+                    letterboxd_avg_date TEXT,
                     title TEXT NOT NULL
                 )"""
             )
@@ -115,10 +125,12 @@ class Movie:
         rating,
         date,
         user: User,
+        tmdb_id=0,
         rewatch=0,
         notified=0,
     ):
         self.letterboxd_id = letterboxd_id
+        self.tmdb_id = tmdb_id
         self.url = url
         self.title = title
         self.year = year
@@ -132,11 +144,12 @@ class Movie:
         with self.db.ops() as c:
             c.execute(
                 """
-                INSERT or IGNORE into movies(letterboxd_id, url, title, year, rating, rewatch, date, user, notified)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT or IGNORE into movies(letterboxd_id, tmdb_id, url, title, year, rating, rewatch, date, user, notified)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     self.letterboxd_id,
+                    self.tmdb_id,
                     self.url,
                     self.title,
                     self.year,
@@ -162,4 +175,61 @@ class Movie:
             except BaseException as e:
                 logger.error(e)
                 logger.error(f"Creation of movie '%s' failed. Exiting..." % self.title)
+                exit(1)
+
+
+class TMDB:
+    def __init__(
+        self,
+        tmdb_id,
+        db,
+        title,
+        release_year=0,
+        imdb_id=0,
+        runtime=0,
+        letterboxd_avg=0.0,
+        letterboxd_avg_date="0",
+    ):
+        self.tmdb_id = tmdb_id
+        self.db = db
+        self.imdb_id = imdb_id
+        self.title = title
+        self.release_year = release_year
+        self.runtime = runtime
+        self.letterboxd_avg = letterboxd_avg
+        self.letterboxd_avg_date = letterboxd_avg_date
+
+        with self.db.ops() as c:
+            c.execute(
+                """
+                INSERT or IGNORE into tmdb(tmdb_id, imdb_id, title, release_year, runtime, letterboxd_avg, letterboxd_avg_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    self.tmdb_id,
+                    self.imdb_id,
+                    self.title,
+                    self.release_year,
+                    self.runtime,
+                    self.letterboxd_avg,
+                    self.letterboxd_avg_date,
+                ),
+            )
+
+        with self.db.ops() as c:
+            try:
+                c.execute(
+                    """
+                    SELECT tmdb_id
+                    FROM tmdb
+                    WHERE tmdb_id is ?
+                """,
+                    (self.tmdb_id,),
+                )
+                self.tmdb_id = c.fetchone()[0]
+            except BaseException as e:
+                logger.error(e)
+                logger.error(
+                    f"Creation of tmdb entry '%s' failed. Exiting..." % self.title
+                )
                 exit(1)
