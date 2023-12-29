@@ -3,8 +3,8 @@
 Module Docstring
 """
 
-__author__ = "Your Name"
-__version__ = "0.1.0"
+__author__ = "Marcel"
+__version__ = "2024.1"
 __license__ = "MIT"
 
 import argparse
@@ -36,6 +36,7 @@ def main(args):
     poller.fetch_movies(user_list, db)
     poller.fetch_movie_tmdb_ids(db)
     poller.update_letterboxd_avg(db)
+    poller.fetch_movie_tmdb_details(db, args.tmdb_api_token)
     telegram.send_movie_updates(db, bot, args.telegram_chat_id, user_list)
     telegram.fetch_monthly_update(db, bot, args.telegram_chat_id, user_list)
 
@@ -77,6 +78,15 @@ if __name__ == "__main__":
         action="store",
         default="./moviebob.db",
         help="Location of SQLite Database file. Defaults to `./moviebob.db`",
+    )
+
+    # TMDB API Key
+    parser.add_argument(
+        "-T",
+        "--tmdb_api_token",
+        action="store",
+        required=True,
+        help="TMDB Api Key to retrieve more informations about movies",
     )
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)

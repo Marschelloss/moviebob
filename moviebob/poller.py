@@ -1,8 +1,7 @@
-import sqlite3
-from bs4 import BeautifulSoup
-import feedparser
-from logzero import logger
 import requests
+import feedparser
+from bs4 import BeautifulSoup
+from logzero import logger
 from moviebob import helper
 from datetime import datetime
 from time import mktime
@@ -160,25 +159,123 @@ def fetch_movie_tmdb_ids(db: helper.DB):
                 "Were not able to webrequest meta infos for '%s': %s" % (title, e)
             )
 
-        # On success write meta infos to database
-        timestamp = datetime.now().isoformat()
-        with db.ops() as c:
-            c.execute(
-                "UPDATE movies SET tmdb_id = ? WHERE url = ?",
-                (tmdbId, url),
+        try:
+            # On success write meta infos to database
+            timestamp = datetime.now().isoformat()
+            with db.ops() as c:
+                c.execute(
+                    "UPDATE movies SET tmdb_id = ? WHERE url = ?",
+                    (tmdbId, url),
+                )
+            tmdb = helper.TMDB(
+                tmdb_id=tmdbId,
+                db=db,
+                title=title,
+                letterboxd_avg=letterboxdAvg,
+                letterboxd_avg_date=timestamp,
             )
-        tmdb = helper.TMDB(
-            tmdb_id=tmdbId,
-            db=db,
-            title=title,
-            letterboxd_avg=letterboxdAvg,
-            letterboxd_avg_date=timestamp,
-        )
-        logger.info(
-            "Set id '%s' and rating '%s' for '%s'"
-            % (tmdb.tmdb_id, letterboxdAvg, title)
-        )
+            logger.info(
+                "Set id '%s' and rating '%s' for '%s'"
+                % (tmdb.tmdb_id, letterboxdAvg, title)
+            )
+        except Exception as err:
+            logger.error(
+                "Could not write informations of '%s' to database: %s" % (title, err)
+            )
+            continue
     logger.debug("Fetched all missing tmdb IDs ...")
+
+
+def fetch_movie_tmdb_details(db: helper.DB, api_key: str):
+    headers = {"accept": "application/json", "Authorization": "Bearer %s" % api_key}
+
+    # Test API key if valid
+    try:
+        resp = requests.get(
+            "https://api.themoviedb.org/3/authentication", headers=headers
+        )
+        if resp.status_code == 200:
+            logger.info("TMDB Api Key validated.")
+        else:
+            logger.error(
+                "Status Code not 200 - TMDB Api Key '%s' could not be validated: %s"
+                % (api_key, resp.json()["status_messge"])
+            )
+            exit(1)
+    except requests.RequestException as err:
+        logger.error(
+            "Requests Error - TMDB Api Key '%s' could not be validated: %s"
+            % (api_key, err)
+        )
+        exit(1)
+    except Exception as err:
+        logger.error(
+            "Unknown Error - TMDB Api Key '%s' could not be validated: %s"
+            % (api_key, err)
+        )
+        exit(1)
+
+    # If successfull continue to parse informations for each movie
+    # lacking any required information.
+    logger.debug("Starting to update missing TMDB movie details...")
+    movie_list = []
+    with db.ops() as c:
+        c.execute(
+            """
+            SELECT title, tmdb_id
+            FROM tmdb
+            WHERE imdb_id is null OR release_date is null OR runtime is null
+            """
+        )
+        movie_list = c.fetchall()
+
+    for movie in movie_list:
+        title = movie[0]
+        tmdb_id = movie[1]
+
+        try:
+            resp = requests.get(
+                "https://api.themoviedb.org/3/movie/%s?language=en-US" % tmdb_id,
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                logger.error(
+                    "TMDB Error - Could not fetch informations for movie '%s' with id '%s': %s"
+                    % (title, tmdb_id, resp.json()["status_message"])
+                )
+                continue
+
+            respJson = resp.json()
+            imdb_id = respJson.get("imdb_id", None)
+            release_date = respJson.get("release_date", None)
+            runtime = respJson.get("runtime", None)
+
+            with db.ops() as c:
+                c.execute(
+                    """
+                    UPDATE tmdb
+                    SET imdb_id = ?, release_date = ?, runtime = ?
+                    WHERE tmdb_id = ?
+                    """,
+                    (imdb_id, release_date, runtime, tmdb_id),
+                )
+            logger.debug(
+                "Updated movie '%s' with IMDB ID '%s', Release Date '%s' and Runtime of '%s'."
+                % (title, imdb_id, release_date, runtime)
+            )
+        except requests.RequestException as err:
+            logger.error(
+                "Requests Error - Could not fetch informations for movie '%s' with id '%s': %s"
+                % (title, tmdb_id, err)
+            )
+            continue
+        except Exception as err:
+            logger.error(
+                "Unknown Error - Could not fetch informations for movie '%s' with id '%s': %s"
+                % (title, tmdb_id, err)
+            )
+            continue
+    logger.info("Finished fetching movie informations from TMDB.")
 
 
 def fetch_movies(user_list, db):

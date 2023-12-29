@@ -59,9 +59,9 @@ class DB:
                 """
                 CREATE TABLE IF NOT EXISTS tmdb(
                     tmdb_id INTEGER PRIMARY KEY,
-                    imdb_id INTEGER NOT NULL,
-                    release_year INTEGER NOT NULL,
-                    runtime INTEGER NOT NULL,
+                    imdb_id INTEGER,
+                    release_date TEXT,
+                    runtime INTEGER,
                     letterboxd_avg REAL,
                     letterboxd_avg_date TEXT,
                     title TEXT NOT NULL
@@ -184,9 +184,9 @@ class TMDB:
         tmdb_id,
         db,
         title,
-        release_year=0,
-        imdb_id=0,
-        runtime=0,
+        release_date=None,
+        imdb_id=None,
+        runtime=None,
         letterboxd_avg=0.0,
         letterboxd_avg_date="0",
     ):
@@ -194,7 +194,7 @@ class TMDB:
         self.db = db
         self.imdb_id = imdb_id
         self.title = title
-        self.release_year = release_year
+        self.release_date = release_date
         self.runtime = runtime
         self.letterboxd_avg = letterboxd_avg
         self.letterboxd_avg_date = letterboxd_avg_date
@@ -202,14 +202,14 @@ class TMDB:
         with self.db.ops() as c:
             c.execute(
                 """
-                INSERT or IGNORE into tmdb(tmdb_id, imdb_id, title, release_year, runtime, letterboxd_avg, letterboxd_avg_date)
+                INSERT or IGNORE into tmdb(tmdb_id, imdb_id, title, release_date, runtime, letterboxd_avg, letterboxd_avg_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     self.tmdb_id,
                     self.imdb_id,
                     self.title,
-                    self.release_year,
+                    self.release_date,
                     self.runtime,
                     self.letterboxd_avg,
                     self.letterboxd_avg_date,
