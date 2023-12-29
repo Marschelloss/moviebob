@@ -64,6 +64,7 @@ class DB:
                     runtime INTEGER,
                     letterboxd_avg REAL,
                     letterboxd_avg_date TEXT,
+                    shortfilm INTEGER GENERATED ALWAYS AS (CASE WHEN runtime < 40 THEN 1 ELSE 0 END),
                     title TEXT NOT NULL
                 )"""
             )
