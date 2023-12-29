@@ -239,7 +239,7 @@ def fetch_movie_tmdb_details(db: helper.DB, api_key: str):
                 headers=headers,
             )
             if resp.status_code != 200:
-                logger.error(
+                logger.info(
                     "TMDB Error - Could not fetch informations for movie '%s' with id '%s': %s"
                     % (title, tmdb_id, resp.json()["status_message"])
                 )
