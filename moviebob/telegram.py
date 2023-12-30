@@ -159,7 +159,7 @@ def send_movie_msg(bot, chat_id, msg, movie_id, db, attempt=0):
             return
 
 
-def fetch_monthly_update(db, bot, chat_id, user_list):
+def fetch_monthly_update(db, bot, chat_id):
     """
     Checks if the monthly update got sent out and prepares the message if not
     :param bot:
@@ -183,61 +183,152 @@ def fetch_monthly_update(db, bot, chat_id, user_list):
             send_monthly_msg(
                 bot,
                 chat_id,
-                create_monthly_msg(db, user_list),
+                create_monthly_msg(db),
                 current_month,
                 current_year,
                 db,
             )
 
 
-def create_monthly_msg(db, user_list):
-    watch_list = {}
-    rewatch_list = {}
+def create_monthly_msg(db):
+    watch_list = []
+    rewatch_list = []
+    shortfilm_list = []
     msg_list = []
+    user_list = []
     target_month = (datetime.now() + relativedelta.relativedelta(months=-1)).month
     target_year = (datetime.now() + relativedelta.relativedelta(months=-1)).year
     target_start = f"datetime('%d-%02d-01 00:00:00')" % (target_year, target_month)
     target_end = f"datetime('%d-%02d-31 23:59:59')" % (target_year, target_month)
 
-    for user in user_list:
-        username = user_list[user].nickname
-        with db.ops() as c:
-            c.execute(
-                "SELECT title, rewatch FROM movies WHERE user is "
-                + str(user_list[user].user_id)
-                + " AND date BETWEEN "
-                + target_start
-                + " AND "
-                + target_end
-            )
-            r = c.fetchall()
-            watch_list[username] = len(r)
-            rewatch_list[username] = sum(map(lambda x: x[1] == 1, r))
+    with db.ops() as c:
+        c.execute(
+            """
+            SELECT user, nickname, COUNT(movie_id)
+            FROM movies
+            INNER JOIN users ON users.user_id = movies.user
+            WHERE date BETWEEN %s AND %s
+            GROUP BY user
+            ORDER BY COUNT(movie_id) DESC
+            """
+            % (target_start, target_end)
+        )
+        watch_list = c.fetchall()
+        c.execute(
+            """
+            SELECT user, nickname, COUNT(movie_id)
+            FROM movies
+            INNER JOIN users ON users.user_id = movies.user
+            WHERE rewatch = 1 AND date BETWEEN %s AND %s
+            GROUP BY user
+            ORDER BY COUNT(movie_id) DESC
+            """
+            % (target_start, target_end)
+        )
+        rewatch_list = c.fetchall()
+        c.execute(
+            """
+            SELECT user, nickname, COUNT(movie_id)
+            FROM movies
+            INNER JOIN users ON users.user_id = movies.user
+            INNER JOIN tmdb ON tmdb.tmdb_id = movies.tmdb_id
+            WHERE shortfilm = 1 AND date BETWEEN %s AND %s
+            GROUP BY user
+            ORDER BY COUNT(movie_id) DESC
+            """
+            % (target_start, target_end)
+        )
+        shortfilm_list = c.fetchall()
 
-    watch_list = dict(
-        sorted(watch_list.items(), key=lambda item: item[1], reverse=True)
-    )
-    for i, user in enumerate(watch_list):
+    for user in watch_list:
+        user_id = user[0]
+        nickname = user[1]
+        watch_count = user[2]
+        rewatch_count = 0
+        for rewatch in rewatch_list:
+            if rewatch[0] == user_id:
+                rewatch_count = rewatch[2]
+        shortfilm_count = 0
+        for shortfilm in shortfilm_list:
+            if shortfilm[0] == user_id:
+                shortfilm_count = shortfilm[2]
+
+        # Probably should be reworked into the User Class
+        user_list.append(
+            {
+                "user_id": user_id,
+                "nickname": nickname,
+                "watch_count": watch_count,
+                "rewatch_count": rewatch_count,
+                "shortfilm_count": shortfilm_count,
+            }
+        )
+
+    for i, user in enumerate(user_list):
         if i == 0:
             msg_list.append(
-                "- 🥇 Wuhu! Gute Arbeit! %s hat sich massive %s Filme reingedübelt, davon %s Rewatches"
-                % (user, watch_list[user], rewatch_list[user])
+                "- 🥇 Wuhu! Gute Arbeit! %s hat sich massive %s Filme reingedübelt, davon %s Rewatches und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
             )
         elif i == 1:
             msg_list.append(
-                "- 🥈 Zweiter Platz für %s! Hat sich ordentlich %s Filme einverleibt, davon %s Rewatches"
-                % (user, watch_list[user], rewatch_list[user])
+                "- 🥈 Zweiter Platz für %s! Hat sich ordentlich %s Filme einverleibt, davon %s Rewatches und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
             )
         elif i == 2:
             msg_list.append(
-                "- 🥉 Letztes Edelmetal geht an %s mit %s Filmen unterm Gürtel, davon %s Rewatches"
-                % (user, watch_list[user], rewatch_list[user])
+                "- 🥉 Letztes Edelmetal geht an %s mit %s Filmen unterm Gürtel, davon %s Rewatches und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
+            )
+        elif i == 3:
+            msg_list.append(
+                "- 🍄 Knapp am Podium vorbei! %s hat sich trotzdem %s Filme reingedübelt, davon %s Rewatches und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
+            )
+        elif i == 4:
+            msg_list.append(
+                "- 🥑 Schon wenig, aber immernoch besser als Letzer! %s hat sich %s Filme gegönnt, davon %s Rewatches und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
             )
         else:
             msg_list.append(
                 "- 🍑 %s hatte wohl Bessers zu tun, und schaffte es nur auf %s Film(e), "
-                "davon %s Rewatche(s)" % (user, watch_list[user], rewatch_list[user])
+                "davon %s Rewatche(s) und %s Shortfilms"
+                % (
+                    user["nickname"],
+                    user["watch_count"],
+                    user["rewatch_count"],
+                    user["shortfilm_count"],
+                )
             )
+
+    if not msg_list:
+        raise Exception("Error: msg_list is empty!")
 
     msg_header = (
         "🎬 Endlich ist es wieder so weit - Zeit für den monatlichen Penisvergleich! Die Stats für %s-%s:\n\n"
