@@ -68,6 +68,16 @@ class DB:
                     title TEXT NOT NULL
                 )"""
             )
+            # ---
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS yearly(
+                    yearly_id INTEGER PRIMARY KEY,
+                    year INTEGER NOT NULL,
+                    notified INTEGER NOT NULL
+                )
+                """
+            )
 
     @contextmanager
     def ops(self):
