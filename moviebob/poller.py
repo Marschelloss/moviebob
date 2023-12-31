@@ -141,8 +141,15 @@ def fetch_movie_tmdb_ids(db: helper.DB):
             urlList = url.split("/")
             # Remove empty fields from list
             urlList = list(filter(None, urlList))
-            # If rewatch, a number is added to the url
-            if rewatch:
+            # Sometimes a number gets added to the last part of the url for rewatches, but not always...
+            rewatchUrl = False
+            try:
+                int(urlList[-1])
+                rewatchUrl = True
+            except ValueError:
+                rewatchUrl = False
+
+            if rewatchUrl:
                 fullUrl = "https://letterboxd.com/film/" + urlList[-2]
             else:
                 fullUrl = "https://letterboxd.com/film/" + urlList[-1]
