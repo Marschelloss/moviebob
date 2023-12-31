@@ -8,3 +8,5 @@ setuptools==60.2.0
 sgmllib3k==1.0.0
 six==1.16.0
 wheel==0.37.1
+requests==2.31.0
+beautifulsoup4==4.12.2
