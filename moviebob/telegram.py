@@ -379,7 +379,9 @@ def send_monthly_msg(bot, chat_id, msg, current_month, current_year, db, attempt
 
 
 def fetch_yearly_update(db, bot, chat_id):
-    current_year = datetime.now().year
+    # current_day = datetime.now().day
+    # current_month = datetime.now().month
+    current_year = datetime.now().year - 1
     logger.debug(f"Checking for yearly update %s" % current_year)
     with db.ops() as c:
         c.execute(
@@ -406,7 +408,6 @@ def create_yearly_msg(year, db):
     shortfilm_list = []
     runtime_list = []
     avg_list = []
-    msg_list = []
     user_list = []
     target_start = f"datetime('%d-01-01 00:00:00')" % year
     target_end = f"datetime('%d-12-31 23:59:59')" % year
@@ -526,7 +527,7 @@ def create_yearly_msg(year, db):
     msg = (
         msg_header
         + create_yearly_runtime_msg(runtime_list)
-        + create_yearly_letterboxd_avg_msg(avg_list, db)
+        + create_yearly_letterboxd_avg_msg(avg_list, db, target_start, target_end)
         + create_yearly_stats_msg(user_list, unique_count)
     )
 
@@ -563,15 +564,15 @@ def send_yearly_msg(bot, chat_id, msg, current_year, db, attempt=0):
     else:
         print("Yearly Message success!!")
         # If no exception was thrown
-        # with db.ops() as c:
-        #     c.execute(
-        #         """
-        #         INSERT into monthly(month, year, notified)
-        #         VALUES (?, ?, ?)
-        #     """,
-        #         (current_month, current_year, 1),
-        #     )
-        #     return
+        with db.ops() as c:
+            c.execute(
+                """
+                INSERT into yearly(year, notified)
+                VALUES (?, ?)
+            """,
+                (current_year, 1),
+            )
+            return
 
 
 def create_yearly_runtime_msg(runtime_list):
@@ -594,7 +595,7 @@ def create_yearly_runtime_msg(runtime_list):
     return msg_header + "\n".join(msg_list) + msg_footer + "\n\n"
 
 
-def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db):
+def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db, target_start, target_end):
     msg_list = []
     msg_header = "🥊 Apro-Po neue Features: Sind das etwa die Letterboxd Average Ratings für jeden Film! Dann können wir ja endlich mal herausfinden, wer in der Gruppe die schlechtesten Filme schaut:\n\n"
 
@@ -603,6 +604,8 @@ def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db):
             "%s. %s mit einem Average von %s / 5" % (i + 1, user[1], round(user[2], 2))
         )
 
+    print(target_start)
+    print(target_end)
     with db.ops() as c:
         c.execute(
             """
@@ -610,10 +613,11 @@ def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db):
                 FROM movies
                 INNER JOIN users ON users.user_id = movies.user
                 INNER JOIN tmdb ON tmdb.tmdb_id = movies.tmdb_id
-                WHERE letterboxd_avg != 0.0 OR letterboxd_avg != 0
+                WHERE letterboxd_avg != 0.0 AND date BETWEEN %s AND %s
                 ORDER BY letterboxd_avg DESC
                 LIMIT 1;
             """
+            % (target_start, target_end)
         )
         best_movie = c.fetchone()
         c.execute(
@@ -633,10 +637,11 @@ def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db):
                 FROM movies
                 INNER JOIN users ON users.user_id = movies.user
                 INNER JOIN tmdb ON tmdb.tmdb_id = movies.tmdb_id
-                WHERE letterboxd_avg != 0.0 OR letterboxd_avg != 0
+                WHERE letterboxd_avg != 0.0 AND date BETWEEN %s AND %s
                 ORDER BY letterboxd_avg ASC
                 LIMIT 1;
             """
+            % (target_start, target_end)
         )
         worst_movie = c.fetchone()
         c.execute(
@@ -655,12 +660,18 @@ def create_yearly_letterboxd_avg_msg(letterboxd_avg_list, db):
     for i, user in enumerate(best_movie_users):
         if i == 0:
             best_movie_users_str = user[1]
+        elif user[1] in best_movie_users_str:
+            # name already in list
+            continue
         else:
             best_movie_users_str = best_movie_users_str + " & " + user[1]
     worst_movie_users_str = ""
     for i, user in enumerate(worst_movie_users):
         if i == 0:
             worst_movie_users_str = user[1]
+        elif user[1] in worst_movie_users_str:
+            # name already in list
+            continue
         else:
             worst_movie_users_str = worst_movie_users_str + " & " + user[1]
 

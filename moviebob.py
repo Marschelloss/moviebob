@@ -39,6 +39,7 @@ def main(args):
     poller.fetch_movie_tmdb_details(db, args.tmdb_api_token)
     telegram.send_movie_updates(db, bot, args.telegram_chat_id, user_list)
     telegram.fetch_monthly_update(db, bot, args.telegram_chat_id)
+    telegram.fetch_yearly_update(db, bot, args.telegram_chat_id)
 
 
 if __name__ == "__main__":
