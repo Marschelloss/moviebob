@@ -28,5 +28,8 @@ Temporary Items
 
 # Database
 moviebob.db
+moviebob.db.bak
+# Development scripts
+scripts
 
 .idea
