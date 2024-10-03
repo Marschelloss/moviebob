@@ -33,3 +33,7 @@ moviebob.db.bak
 scripts
 
 .idea
+
+# Python
+__pycache__
+venv
